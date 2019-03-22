@@ -1,5 +1,6 @@
 package xyz.fz.record.handler;
 
+import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
@@ -19,6 +20,7 @@ class RequestHolder {
             requestInfo.put("headers", httpRequest.headers());
             requestInfo.put("method", httpRequest.method().name());
             requestInfo.put("uri", httpRequest.uri());
+            requestInfo.put("host", httpRequest.headers().get(HttpHeaderNames.HOST).toString().split(":")[0]);
             attr.set(requestInfo);
         }
     }

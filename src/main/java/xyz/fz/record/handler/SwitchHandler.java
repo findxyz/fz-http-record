@@ -1,11 +1,13 @@
 package xyz.fz.record.handler;
 
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.*;
 import io.netty.util.Attribute;
 import io.netty.util.ReferenceCountUtil;
 
+import java.nio.charset.Charset;
 import java.util.Map;
 
 public class SwitchHandler extends ChannelInboundHandlerAdapter {
@@ -14,17 +16,21 @@ public class SwitchHandler extends ChannelInboundHandlerAdapter {
     public void channelRead(final ChannelHandlerContext ctx, final Object msg) throws Exception {
 
         if (msg instanceof HttpRequest) {
+            Attribute<Map<String, Object>> attr = ctx.channel().attr(RequestHolder.REQUEST_INFO);
+            RequestHolder.hold((HttpRequest) msg, attr);
             if ("CONNECT".equalsIgnoreCase(((HttpRequest) msg).method().name())) {
-                // 1.response connect ok
-                // 2.add new handlers (sslHandler and httpsHandler) to channel pipeline
-                // 3.make self-signed cert
-                System.out.println("https todo: " + ((HttpRequest) msg).uri());
+                DefaultFullHttpResponse connectedResponse = new DefaultFullHttpResponse(
+                        HttpVersion.HTTP_1_1,
+                        HttpResponseStatus.OK,
+                        Unpooled.copiedBuffer("Connection established\r\n\r\n", Charset.forName("utf-8"))
+                );
+                ctx.pipeline().remove(HttpServerCodec.class);
+                ctx.pipeline().addLast(new HandShakeHandler());
+                ctx.writeAndFlush(connectedResponse);
             } else {
-                Attribute<Map<String, Object>> attr = ctx.channel().attr(RequestHolder.REQUEST_INFO);
-                RequestHolder.hold((HttpRequest) msg, attr);
-                ctx.pipeline().remove(SwitchHandler.class);
                 ctx.pipeline().addLast(new HttpHandler());
             }
+            ctx.pipeline().remove(SwitchHandler.class);
         }
 
         ReferenceCountUtil.release(msg);
