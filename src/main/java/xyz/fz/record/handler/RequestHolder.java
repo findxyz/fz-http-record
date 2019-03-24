@@ -14,13 +14,17 @@ class RequestHolder {
 
     static void hold(HttpRequest httpRequest,
                      Attribute<Map<String, Object>> attr) {
-        Map<String, Object> requestInfo = attr.get();
-        if (requestInfo == null) {
-            requestInfo = new HashMap<>();
+        if (httpRequest.headers().size() > 0) {
+            String host = httpRequest.headers().get(HttpHeaderNames.HOST).split(":")[0];
+            Map<String, Object> requestInfo = new HashMap<>();
             requestInfo.put("headers", httpRequest.headers());
             requestInfo.put("method", httpRequest.method().name());
-            requestInfo.put("uri", httpRequest.uri());
-            requestInfo.put("host", httpRequest.headers().get(HttpHeaderNames.HOST).toString().split(":")[0]);
+            if (httpRequest.uri().startsWith("http")) {
+                requestInfo.put("uri", httpRequest.uri());
+            } else {
+                requestInfo.put("uri", "https://" + host + httpRequest.uri());
+            }
+            requestInfo.put("host", host);
             attr.set(requestInfo);
         }
     }

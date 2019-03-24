@@ -13,7 +13,7 @@ import java.security.Security;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.WeakHashMap;
 
 public class CertUtil {
 
@@ -29,9 +29,7 @@ public class CertUtil {
 
     private static final String CA_KEY = "certs/root/ca.key";
 
-    private static final String CERT_DIR = "certs/hosts/";
-
-    private static ConcurrentHashMap<String, CertGenerateUtil.CertResult> hostCerts = new ConcurrentHashMap<>();
+    private static final WeakHashMap<String, CertGenerateUtil.CertResult> HOSTS_CERTS = new WeakHashMap<>();
 
     private static CertGenerateUtil.CertResult CA_CERT_RESULT;
 
@@ -49,12 +47,18 @@ public class CertUtil {
         }
 
         try {
-            CertGenerateUtil.CertResult certResult = load(CA_CERT, CA_KEY);
-            if (certResult != null) {
-                CA_CERT_RESULT = certResult;
+            File caCert = new File(CA_CERT);
+            File caKey = new File(CA_KEY);
+            if (caCert.exists() && caKey.exists()) {
+                X509Certificate certificate = (X509Certificate) certificateFactory.generateCertificate(new FileInputStream(caCert));
+                byte[] keyBytes = FileUtils.readFileToByteArray(caKey);
+                PKCS8EncodedKeySpec pkcs8EncodedKeySpec = new PKCS8EncodedKeySpec(keyBytes);
+                PrivateKey privateKey = keyFactory.generatePrivate(pkcs8EncodedKeySpec);
+                CA_CERT_RESULT = new CertGenerateUtil.CertResult(privateKey, certificate);
             } else {
                 CertGenerateUtil.CertResult newCertResult = CertGenerateUtil.generateCaCert(CA_HOST);
-                store(newCertResult, CA_CERT, CA_KEY);
+                FileUtils.writeByteArrayToFile(new File(CA_CERT), newCertResult.getCertificate().getEncoded());
+                FileUtils.writeByteArrayToFile(new File(CA_KEY), newCertResult.getPrivateKey().getEncoded());
                 CA_CERT_RESULT = newCertResult;
             }
         } catch (Exception e) {
@@ -63,45 +67,12 @@ public class CertUtil {
         }
     }
 
-    public static CertGenerateUtil.CertResult fetchCaCert() {
-        return CA_CERT_RESULT;
-    }
-
-    public static CertGenerateUtil.CertResult fetchCert(String host) throws Exception {
-        CertGenerateUtil.CertResult certResult = hostCerts.get(host);
+    public static synchronized CertGenerateUtil.CertResult fetchCert(String host) throws Exception {
+        CertGenerateUtil.CertResult certResult = HOSTS_CERTS.get(host);
         if (certResult == null) {
-            String certPath = CERT_DIR + host + ".cer";
-            String keyPath = CERT_DIR + host + ".key";
-            CertGenerateUtil.CertResult loadCertResult = load(certPath, keyPath);
-            if (loadCertResult != null) {
-                certResult = loadCertResult;
-            } else {
-                CertGenerateUtil.CertResult newCertResult = CertGenerateUtil.generateCert(CA_HOST, host, CA_CERT_RESULT.getPrivateKey());
-                store(newCertResult, certPath, keyPath);
-                certResult = newCertResult;
-            }
-            hostCerts.put(host, certResult);
+            certResult = CertGenerateUtil.generateCert(CA_HOST, host, CA_CERT_RESULT.getPrivateKey());
+            HOSTS_CERTS.put(host, certResult);
         }
         return certResult;
     }
-
-    private static CertGenerateUtil.CertResult load(String certPath, String keyPath) throws Exception {
-        File cert = new File(certPath);
-        File key = new File(keyPath);
-        if (cert.exists() && key.exists()) {
-            X509Certificate certificate = (X509Certificate) certificateFactory.generateCertificate(new FileInputStream(cert));
-            byte[] keyBytes = FileUtils.readFileToByteArray(key);
-            PKCS8EncodedKeySpec pkcs8EncodedKeySpec = new PKCS8EncodedKeySpec(keyBytes);
-            PrivateKey privateKey = keyFactory.generatePrivate(pkcs8EncodedKeySpec);
-            return new CertGenerateUtil.CertResult(privateKey, certificate);
-        } else {
-            return null;
-        }
-    }
-
-    private static void store(CertGenerateUtil.CertResult certResult, String certPath, String keyPath) throws Exception {
-        FileUtils.writeByteArrayToFile(new File(certPath), certResult.getCertificate().getEncoded());
-        FileUtils.writeByteArrayToFile(new File(keyPath), certResult.getPrivateKey().getEncoded());
-    }
-
 }

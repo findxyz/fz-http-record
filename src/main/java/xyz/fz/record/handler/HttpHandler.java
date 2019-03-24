@@ -7,12 +7,18 @@ import io.netty.handler.codec.http.*;
 import io.netty.util.Attribute;
 import io.netty.util.ReferenceCountUtil;
 import okhttp3.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public class HttpHandler extends ChannelInboundHandlerAdapter {
 
-    private CompositeByteBuf cumulation;
+    private static final Logger LOGGER = LoggerFactory.getLogger(HttpHandler.class);
+
+    private CompositeByteBuf cumulateContent;
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
@@ -22,12 +28,12 @@ public class HttpHandler extends ChannelInboundHandlerAdapter {
             ReferenceCountUtil.release(msg);
         } else {
             if (msg instanceof HttpContent) {
-                cumulate(((HttpContent) msg).content(), ctx.alloc());
+                cumulateContent(((HttpContent) msg).content(), ctx.alloc());
                 if (msg instanceof LastHttpContent) {
                     Map<String, Object> requestInfo = attr.get();
-                    doProxy(ctx, requestInfo, cumulation);
+                    doProxy(ctx, requestInfo, cumulateContent);
                     RequestHolder.clear(attr);
-                    cumulationRelease();
+                    cumulateContentRelease();
                 }
             }
         }
@@ -38,18 +44,19 @@ public class HttpHandler extends ChannelInboundHandlerAdapter {
         String uri = requestInfo.get("uri").toString();
         String method = requestInfo.get("method").toString();
 
-        System.out.println("doProxy uri: " + uri);
+        LOGGER.warn("proxy uri: {}", uri);
 
         httpHeaders.remove("Proxy-Connection");
         httpHeaders.remove("Accept-Encoding");
 
-        OkHttpClient client = new OkHttpClient();
         Request.Builder reqBuilder = new Request.Builder();
         reqBuilder.url(uri);
         RequestBody reqBody;
-        if (httpHeaders.get("Content-Type") != null) {
+        String contentType = httpHeaders.get("Content-Type");
+        if ((contentType != null || method.equalsIgnoreCase("POST"))
+                && !method.equalsIgnoreCase("GET")) {
             reqBody = RequestBody.create(
-                    MediaType.get(httpHeaders.get("Content-Type")),
+                    MediaType.get(contentType != null ? contentType : "application/x-www-form-unlencoded"),
                     ByteBufUtil.getBytes(cumulation)
             );
         } else {
@@ -60,39 +67,70 @@ public class HttpHandler extends ChannelInboundHandlerAdapter {
             reqBuilder.addHeader(entry.getKey(), entry.getValue());
         }
 
-        try (Response okRes = client.newCall(reqBuilder.build()).execute()) {
-            ResponseBody okResBody = okRes.body();
-            if (okResBody != null) {
-                DefaultFullHttpResponse proxyRes;
-                proxyRes = okRes.isSuccessful()
-                        ? new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, new HttpResponseStatus(okRes.code(), okRes.message()), Unpooled.copiedBuffer(okResBody.bytes()))
-                        : new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, new HttpResponseStatus(okRes.code(), okRes.message()));
-
-                Headers okResHeaders = okRes.headers();
-                for (String header : okResHeaders.names()) {
-                    proxyRes.headers().add(header, okResHeaders.get(header));
-                }
-
-                ctx.writeAndFlush(proxyRes);
+        OkHttpClient client = new OkHttpClient.Builder()
+                .connectTimeout(2, TimeUnit.SECONDS)
+                .readTimeout(2, TimeUnit.SECONDS)
+                .writeTimeout(2, TimeUnit.SECONDS).build();
+        client.newCall(reqBuilder.build()).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                e.printStackTrace();
+                ctx.close();
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+
+            @Override
+            public void onResponse(Call call, Response okRes) throws IOException {
+                ResponseBody okResBody = okRes.body();
+                if (okResBody != null) {
+                    DefaultFullHttpResponse proxyRes;
+                    proxyRes = okRes.isSuccessful() ?
+                            new DefaultFullHttpResponse(
+                                    HttpVersion.HTTP_1_1,
+                                    new HttpResponseStatus(okRes.code(), okRes.message()),
+                                    Unpooled.copiedBuffer(okResBody.bytes()))
+                            :
+                            new DefaultFullHttpResponse(
+                                    HttpVersion.HTTP_1_1,
+                                    new HttpResponseStatus(okRes.code(), okRes.message()));
+
+                    Headers okResHeaders = okRes.headers();
+                    for (String header : okResHeaders.names()) {
+                        proxyRes.headers().add(header, okResHeaders.get(header));
+                    }
+
+                    ctx.writeAndFlush(proxyRes);
+                }
+                okRes.close();
+            }
+        });
     }
 
-    private void cumulate(ByteBuf data, ByteBufAllocator allocator) {
-        if (cumulation == null) {
-            cumulation = allocator.compositeBuffer(16);
-            cumulation.addComponent(true, data);
+    private void cumulateContent(ByteBuf data, ByteBufAllocator allocator) {
+        if (cumulateContent == null) {
+            cumulateContent = allocator.compositeBuffer(16);
+            cumulateContent.addComponent(true, data);
         } else {
-            cumulation.addComponent(true, data);
+            cumulateContent.addComponent(true, data);
         }
     }
 
-    private void cumulationRelease() {
-        if (cumulation != null) {
-            cumulation.release();
-            cumulation = null;
+    private void cumulateContentRelease() {
+        if (cumulateContent != null) {
+            cumulateContent.release();
+            cumulateContent = null;
         }
+    }
+
+    @Override
+    public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
+        cumulateContentRelease();
+        ctx.close();
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        cause.printStackTrace();
+        cumulateContentRelease();
+        ctx.close();
     }
 }
