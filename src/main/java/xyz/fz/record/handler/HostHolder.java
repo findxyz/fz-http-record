@@ -17,7 +17,7 @@ class HostHolder {
             if (!host.contains(".")) {
                 throw new RuntimeException("unknown host");
             }
-            if (host.contains("google")) {
+            if (host.contains("google") || host.contains("appspot")) {
                 throw new GreatFireWallException();
             }
             ctx.channel().attr(HOST).set(host);
