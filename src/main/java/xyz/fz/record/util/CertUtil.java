@@ -1,10 +1,14 @@
 package xyz.fz.record.util;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import org.apache.commons.io.FileUtils;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.File;
 import java.io.FileInputStream;
 import java.security.KeyFactory;
@@ -13,7 +17,6 @@ import java.security.Security;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
-import java.util.WeakHashMap;
 
 public class CertUtil {
 
@@ -29,7 +32,15 @@ public class CertUtil {
 
     private static final String CA_KEY = "certs/root/ca.key";
 
-    private static final WeakHashMap<String, CertGenerateUtil.CertResult> HOSTS_CERTS = new WeakHashMap<>();
+    private static LoadingCache<String, CertGenerateUtil.CertResult> HOSTS_CERTS = CacheBuilder.newBuilder()
+            .maximumSize(2000)
+            .build(new CacheLoader<String, CertGenerateUtil.CertResult>() {
+                @Override
+                @ParametersAreNonnullByDefault
+                public CertGenerateUtil.CertResult load(String host) throws Exception {
+                    return CertGenerateUtil.generateCert(CA_HOST, host, CA_CERT_RESULT.getPrivateKey());
+                }
+            });
 
     private static CertGenerateUtil.CertResult CA_CERT_RESULT;
 
@@ -68,11 +79,6 @@ public class CertUtil {
     }
 
     public static synchronized CertGenerateUtil.CertResult fetchCert(String host) throws Exception {
-        CertGenerateUtil.CertResult certResult = HOSTS_CERTS.get(host);
-        if (certResult == null) {
-            certResult = CertGenerateUtil.generateCert(CA_HOST, host, CA_CERT_RESULT.getPrivateKey());
-            HOSTS_CERTS.put(host, certResult);
-        }
-        return certResult;
+        return HOSTS_CERTS.get(host);
     }
 }

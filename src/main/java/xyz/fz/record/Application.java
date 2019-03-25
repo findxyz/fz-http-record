@@ -39,8 +39,8 @@ public class Application {
                     .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override
                         public void initChannel(SocketChannel ch) throws Exception {
-                            ch.pipeline().addLast(new HttpServerCodec());
-                            ch.pipeline().addLast(new SwitchHandler());
+                            ch.pipeline().addLast("httpServerCodec", new HttpServerCodec());
+                            ch.pipeline().addLast("switchHandler", new SwitchHandler());
                         }
                     })
                     .option(ChannelOption.SO_BACKLOG, 128)
