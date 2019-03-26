@@ -14,7 +14,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import xyz.fz.record.handler.SwitchHandler;
-import xyz.fz.record.util.CertUtil;
 
 @SpringBootApplication
 public class Application {
@@ -23,12 +22,6 @@ public class Application {
 
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
-
-        try {
-            Class.forName(CertUtil.class.getName());
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        }
 
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();

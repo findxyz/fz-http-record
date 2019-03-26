@@ -32,9 +32,9 @@ public class HandShakeHandler extends ChannelInboundHandlerAdapter {
                 ctx.pipeline().remove("handShakeHandler");
                 ctx.pipeline().addLast("sslHandler", sslCtx.newHandler(ctx.alloc()));
                 ctx.pipeline().addLast("httpServerCodec", new HttpServerCodec());
-                ctx.pipeline().addLast("httpObjectAggregator", new HttpObjectAggregator(64 * 1024));
+                ctx.pipeline().addLast("httpObjectAggregator", new HttpObjectAggregator(8 * 1024 * 1024));
                 ctx.pipeline().addLast("httpContentCompressor", new HttpContentCompressor());
-                ctx.pipeline().addLast("httpsFullServerHandler", new HttpsFullServerHandler());
+                ctx.pipeline().addLast("httpsFullServerHandler", new HttpsFullServerHandler(ctx.channel(), hostInfo.getHost(), hostInfo.getPort()));
                 ctx.pipeline().fireChannelRead(msg);
             }
         } else {
@@ -46,6 +46,5 @@ public class HandShakeHandler extends ChannelInboundHandlerAdapter {
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         ctx.close();
         LOGGER.error("hand shake handler err: {}", cause.getMessage());
-        cause.printStackTrace();
     }
 }

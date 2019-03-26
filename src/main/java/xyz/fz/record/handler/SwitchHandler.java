@@ -41,7 +41,7 @@ public class SwitchHandler extends ChannelInboundHandlerAdapter {
         if (InterceptorService.intercept(hostInfo.getHost())) {
             ctx.pipeline().addLast("handShakeHandler", new HandShakeHandler());
         } else {
-            ctx.pipeline().addLast("httpsNormalServerHandler", new HttpsNormalServerHandler());
+            ctx.pipeline().addLast("httpsNormalServerHandler", new HttpsNormalServerHandler(ctx.channel(), hostInfo.getHost(), hostInfo.getPort()));
         }
         ReferenceCountUtil.release(msg);
     }
@@ -52,9 +52,9 @@ public class SwitchHandler extends ChannelInboundHandlerAdapter {
         if (InterceptorService.intercept(hostInfo.getHost())) {
             ctx.pipeline().addAfter("httpServerCodec", "httpObjectAggregator", new HttpObjectAggregator(8 * 1024 * 1024));
             ctx.pipeline().addAfter("httpObjectAggregator", "httpContentCompressor", new HttpContentCompressor());
-            ctx.pipeline().addAfter("httpContentCompressor", "httpFullServerHandler", new HttpFullServerHandler());
+            ctx.pipeline().addAfter("httpContentCompressor", "httpFullServerHandler", new HttpFullServerHandler(ctx.channel(), hostInfo.getHost(), hostInfo.getPort()));
         } else {
-            ctx.pipeline().addLast("httpNormalServerHandler", new HttpNormalServerHandler());
+            ctx.pipeline().addLast("httpNormalServerHandler", new HttpNormalServerHandler(ctx.channel(), hostInfo.getHost(), hostInfo.getPort()));
         }
         ctx.pipeline().fireChannelRead(msg);
     }
@@ -64,7 +64,6 @@ public class SwitchHandler extends ChannelInboundHandlerAdapter {
         ctx.close();
         if (!(cause instanceof GreatFireWallException)) {
             LOGGER.error("switch handler err: {}", cause.getMessage());
-            cause.printStackTrace();
         }
     }
 }

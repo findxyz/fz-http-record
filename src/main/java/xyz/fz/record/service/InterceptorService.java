@@ -11,7 +11,8 @@ public class InterceptorService {
     private static final Set<String> INTERCEPT_HOSTS = new HashSet<>();
 
     static {
-        INTERCEPT_HOSTS.add("baidu.com");
+        INTERCEPT_HOSTS.add("v2ex.com");
+        INTERCEPT_HOSTS.add("jd.com");
     }
 
     public static boolean intercept(String host) {

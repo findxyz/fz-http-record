@@ -2,9 +2,7 @@ package xyz.fz.record.handler.client.full;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.EventLoopGroup;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.handler.codec.http.FullHttpResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,8 +12,6 @@ public class FullClientHandler extends SimpleChannelInboundHandler<FullHttpRespo
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FullClientHandler.class);
 
-    public static EventLoopGroup FULL_CLIENT_GROUP = new NioEventLoopGroup();
-
     private Channel serverChannel;
 
     public FullClientHandler(Channel serverChannel) {
@@ -24,7 +20,9 @@ public class FullClientHandler extends SimpleChannelInboundHandler<FullHttpRespo
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpResponse msg) throws Exception {
+
         InterceptorService.interceptResponse(msg);
+
         msg.retain();
         serverChannel.writeAndFlush(msg);
     }
@@ -38,6 +36,6 @@ public class FullClientHandler extends SimpleChannelInboundHandler<FullHttpRespo
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         ctx.channel().close();
         serverChannel.close();
-        LOGGER.error("http client handler err: {}", cause.getMessage());
+        LOGGER.error("full client handler err: {}", cause.getMessage());
     }
 }

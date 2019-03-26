@@ -33,7 +33,7 @@ public class HostHolder {
             }
             for (String gfwWord : GFW_WORDS) {
                 if (host.contains(gfwWord)) {
-                    throw new GreatFireWallException();
+                    throw new GreatFireWallException("Oh, no! It's great firewall!");
                 }
             }
             HostInfo hostInfo = new HostInfo(host, port);
