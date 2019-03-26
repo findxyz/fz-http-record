@@ -1,15 +1,10 @@
-package xyz.fz.record.handler;
+package xyz.fz.record.handler.server.full;
 
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 
-public class HttpsServerHandler extends ServerHandler {
-    @Override
-    public String defaultPort() {
-        return "443";
-    }
-
+public class HttpsFullServerHandler extends AbstractFullServerHandler {
     @Override
     public void otherClientHandler(SocketChannel ch) throws Exception {
         ch.pipeline().addFirst("sslHandler",

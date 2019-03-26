@@ -9,18 +9,23 @@ import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.util.ReferenceCountUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import xyz.fz.record.handler.server.full.HttpsFullServerHandler;
 import xyz.fz.record.util.CertGenerateUtil;
 import xyz.fz.record.util.CertUtil;
 
 public class HandShakeHandler extends ChannelInboundHandlerAdapter {
+
+    private static Logger LOGGER = LoggerFactory.getLogger(HandShakeHandler.class);
 
     @Override
     public void channelRead(final ChannelHandlerContext ctx, final Object msg) throws Exception {
         if (msg instanceof ByteBuf) {
             ByteBuf byteBuf = (ByteBuf) msg;
             if (byteBuf.getByte(0) == 22) {
-                String host = HostHolder.get(ctx);
-                CertGenerateUtil.CertResult certResult = CertUtil.fetchCert(host);
+                HostHolder.HostInfo hostInfo = HostHolder.get(ctx);
+                CertGenerateUtil.CertResult certResult = CertUtil.fetchCert(hostInfo.getHost());
                 SslContext sslCtx = SslContextBuilder
                         .forServer(certResult.getPrivateKey(), certResult.getCertificate())
                         .build();
@@ -29,7 +34,7 @@ public class HandShakeHandler extends ChannelInboundHandlerAdapter {
                 ctx.pipeline().addLast("httpServerCodec", new HttpServerCodec());
                 ctx.pipeline().addLast("httpObjectAggregator", new HttpObjectAggregator(64 * 1024));
                 ctx.pipeline().addLast("httpContentCompressor", new HttpContentCompressor());
-                ctx.pipeline().addLast("httpsServerHandler", new HttpsServerHandler());
+                ctx.pipeline().addLast("httpsFullServerHandler", new HttpsFullServerHandler());
                 ctx.pipeline().fireChannelRead(msg);
             }
         } else {
@@ -38,13 +43,9 @@ public class HandShakeHandler extends ChannelInboundHandlerAdapter {
     }
 
     @Override
-    public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
-        ctx.close();
-    }
-
-    @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        cause.printStackTrace();
         ctx.close();
+        LOGGER.error("hand shake handler err: {}", cause.getMessage());
+        cause.printStackTrace();
     }
 }

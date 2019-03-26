@@ -6,27 +6,64 @@ import io.netty.handler.codec.http.HttpRequest;
 import io.netty.util.AttributeKey;
 import xyz.fz.record.exception.GreatFireWallException;
 
-class HostHolder {
+import java.util.HashSet;
+import java.util.Set;
 
-    private static AttributeKey<String> HOST = AttributeKey.valueOf("host");
+public class HostHolder {
 
-    static void hold(HttpRequest httpRequest,
-                     ChannelHandlerContext ctx) {
+    private static AttributeKey<HostInfo> HOST = AttributeKey.valueOf("host");
+
+    private static Set<String> GFW_WORDS = new HashSet<>();
+
+    static {
+        GFW_WORDS.add("google");
+        GFW_WORDS.add("appspot");
+    }
+
+    static HostInfo hold(ChannelHandlerContext ctx, HttpRequest httpRequest, int defaultPort) {
         if (httpRequest.headers().size() > 0) {
-            String host = httpRequest.headers().get(HttpHeaderNames.HOST).split(":")[0];
+            String[] hostPort = httpRequest.headers().get(HttpHeaderNames.HOST).split(":");
+            String host = hostPort[0];
+            int port = defaultPort;
+            if (hostPort.length > 1) {
+                port = Integer.parseInt(hostPort[1]);
+            }
             if (!host.contains(".")) {
                 throw new RuntimeException("unknown host");
             }
-            if (host.contains("google") || host.contains("appspot")) {
-                throw new GreatFireWallException();
+            for (String gfwWord : GFW_WORDS) {
+                if (host.contains(gfwWord)) {
+                    throw new GreatFireWallException();
+                }
             }
-            ctx.channel().attr(HOST).set(host);
+            HostInfo hostInfo = new HostInfo(host, port);
+            ctx.channel().attr(HOST).set(hostInfo);
+            return hostInfo;
         } else {
             throw new RuntimeException("bad request");
         }
     }
 
-    static String get(ChannelHandlerContext ctx) {
+    public static HostInfo get(ChannelHandlerContext ctx) {
         return ctx.channel().attr(HOST).get();
+    }
+
+    public static class HostInfo {
+        private String host;
+
+        private int port;
+
+        HostInfo(String host, int port) {
+            this.host = host;
+            this.port = port;
+        }
+
+        public String getHost() {
+            return host;
+        }
+
+        public int getPort() {
+            return port;
+        }
     }
 }

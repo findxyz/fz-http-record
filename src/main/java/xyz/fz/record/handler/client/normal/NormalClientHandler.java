@@ -1,35 +1,32 @@
-package xyz.fz.record.handler;
+package xyz.fz.record.handler.client.normal;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.EventLoopGroup;
-import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.handler.codec.http.FullHttpResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ClientHandler extends SimpleChannelInboundHandler<FullHttpResponse> {
+public class NormalClientHandler extends ChannelInboundHandlerAdapter {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ClientHandler.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(NormalClientHandler.class);
 
-    static EventLoopGroup CLIENT_GROUP = new NioEventLoopGroup();
+    public static EventLoopGroup NORMAL_CLIENT_GROUP = new NioEventLoopGroup();
 
     private Channel serverChannel;
 
-    ClientHandler(Channel serverChannel) {
+    public NormalClientHandler(Channel serverChannel) {
         this.serverChannel = serverChannel;
     }
 
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, FullHttpResponse msg) throws Exception {
-        msg.retain();
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         serverChannel.writeAndFlush(msg);
     }
 
     @Override
-    public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
-        ctx.channel().close();
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         serverChannel.close();
     }
 
@@ -38,5 +35,6 @@ public class ClientHandler extends SimpleChannelInboundHandler<FullHttpResponse>
         ctx.channel().close();
         serverChannel.close();
         LOGGER.error("http client handler err: {}", cause.getMessage());
+        cause.printStackTrace();
     }
 }

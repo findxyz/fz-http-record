@@ -7,6 +7,10 @@ import io.netty.util.ReferenceCountUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import xyz.fz.record.exception.GreatFireWallException;
+import xyz.fz.record.handler.server.full.HttpFullServerHandler;
+import xyz.fz.record.handler.server.normal.HttpNormalServerHandler;
+import xyz.fz.record.handler.server.normal.HttpsNormalServerHandler;
+import xyz.fz.record.service.InterceptorService;
 
 public class SwitchHandler extends ChannelInboundHandlerAdapter {
 
@@ -14,33 +18,45 @@ public class SwitchHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelRead(final ChannelHandlerContext ctx, final Object msg) throws Exception {
-
         if (msg instanceof HttpRequest) {
             if ("CONNECT".equalsIgnoreCase(((HttpRequest) msg).method().name())) {
-                HostHolder.hold((HttpRequest) msg, ctx);
-                DefaultFullHttpResponse connectedResponse = new DefaultFullHttpResponse(
-                        HttpVersion.HTTP_1_1,
-                        new HttpResponseStatus(200, "Connection established")
-                );
-                ctx.pipeline().writeAndFlush(connectedResponse);
-                ctx.pipeline().remove("httpServerCodec");
-                ctx.pipeline().addLast("handShakeHandler", new HandShakeHandler());
-                ReferenceCountUtil.release(msg);
+                initHttpsHandler(ctx, msg);
             } else {
-                ctx.pipeline().addAfter("httpServerCodec", "httpObjectAggregator", new HttpObjectAggregator(8 * 1024 * 1024));
-                ctx.pipeline().addAfter("httpObjectAggregator", "httpContentCompressor", new HttpContentCompressor());
-                ctx.pipeline().addAfter("httpContentCompressor", "httpServerHandler", new HttpServerHandler());
-                ctx.pipeline().fireChannelRead(msg);
+                initHttpHandler(ctx, msg);
             }
-            ctx.pipeline().remove("switchHandler");
         } else {
             ReferenceCountUtil.release(msg);
         }
     }
 
-    @Override
-    public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
-        ctx.close();
+    private void initHttpsHandler(final ChannelHandlerContext ctx, final Object msg) {
+        HostHolder.HostInfo hostInfo = HostHolder.hold(ctx, (HttpRequest) msg, 443);
+        ctx.pipeline().remove("switchHandler");
+        DefaultFullHttpResponse connectedResponse = new DefaultFullHttpResponse(
+                HttpVersion.HTTP_1_1,
+                new HttpResponseStatus(200, "Connection established")
+        );
+        ctx.pipeline().writeAndFlush(connectedResponse);
+        ctx.pipeline().remove("httpServerCodec");
+        if (InterceptorService.intercept(hostInfo.getHost())) {
+            ctx.pipeline().addLast("handShakeHandler", new HandShakeHandler());
+        } else {
+            ctx.pipeline().addLast("httpsNormalServerHandler", new HttpsNormalServerHandler());
+        }
+        ReferenceCountUtil.release(msg);
+    }
+
+    private void initHttpHandler(final ChannelHandlerContext ctx, final Object msg) {
+        HostHolder.HostInfo hostInfo = HostHolder.hold(ctx, (HttpRequest) msg, 80);
+        ctx.pipeline().remove("switchHandler");
+        if (InterceptorService.intercept(hostInfo.getHost())) {
+            ctx.pipeline().addAfter("httpServerCodec", "httpObjectAggregator", new HttpObjectAggregator(8 * 1024 * 1024));
+            ctx.pipeline().addAfter("httpObjectAggregator", "httpContentCompressor", new HttpContentCompressor());
+            ctx.pipeline().addAfter("httpContentCompressor", "httpFullServerHandler", new HttpFullServerHandler());
+        } else {
+            ctx.pipeline().addLast("httpNormalServerHandler", new HttpNormalServerHandler());
+        }
+        ctx.pipeline().fireChannelRead(msg);
     }
 
     @Override
