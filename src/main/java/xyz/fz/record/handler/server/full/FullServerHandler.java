@@ -6,10 +6,10 @@ import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpHeaders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import xyz.fz.record.handler.server.InitServer;
-import xyz.fz.record.service.InterceptorService;
+import xyz.fz.record.handler.server.InitializingServer;
+import xyz.fz.record.interceptor.FullInterceptor;
 
-public abstract class FullServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> implements InitServer {
+public abstract class FullServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> implements InitializingServer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FullServerHandler.class);
 
@@ -20,8 +20,6 @@ public abstract class FullServerHandler extends SimpleChannelInboundHandler<Full
             LOGGER.error("/bad-request, {}", "TooLongFrameException: An HTTP line is larger than 4096 bytes.");
             return;
         }
-
-        InterceptorService.interceptRequest(msg);
 
         msg.retain();
         getClientWorker().sendMsg(msg);
@@ -45,13 +43,17 @@ public abstract class FullServerHandler extends SimpleChannelInboundHandler<Full
         //
         // https://stackoverflow.com/questions/23859182/netty-simplechannelinboundhandler-close-channel
         // by trustin
-        getClientWorker().getChannelFuture().channel().close();
+        if (getClientWorker().getChannelFuture() != null) {
+            getClientWorker().getChannelFuture().channel().close();
+        }
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         ctx.close();
-        getClientWorker().getChannelFuture().channel().close();
+        if (getClientWorker().getChannelFuture() != null) {
+            getClientWorker().getChannelFuture().channel().close();
+        }
         LOGGER.error("full server handler err: {}", cause.getMessage());
     }
 }

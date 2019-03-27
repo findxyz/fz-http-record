@@ -10,7 +10,7 @@ import xyz.fz.record.exception.GreatFireWallException;
 import xyz.fz.record.handler.server.full.HttpFullServerHandler;
 import xyz.fz.record.handler.server.normal.HttpNormalServerHandler;
 import xyz.fz.record.handler.server.normal.HttpsNormalServerHandler;
-import xyz.fz.record.service.InterceptorService;
+import xyz.fz.record.interceptor.FullInterceptor;
 
 public class SwitchHandler extends ChannelInboundHandlerAdapter {
 
@@ -38,7 +38,7 @@ public class SwitchHandler extends ChannelInboundHandlerAdapter {
         );
         ctx.pipeline().writeAndFlush(connectedResponse);
         ctx.pipeline().remove("httpServerCodec");
-        if (InterceptorService.intercept(hostInfo.getHost())) {
+        if (FullInterceptor.interceptCheck(hostInfo.getHost())) {
             ctx.pipeline().addLast("handShakeHandler", new HandShakeHandler());
         } else {
             ctx.pipeline().addLast("httpsNormalServerHandler", new HttpsNormalServerHandler(ctx.channel(), hostInfo.getHost(), hostInfo.getPort()));
@@ -49,7 +49,7 @@ public class SwitchHandler extends ChannelInboundHandlerAdapter {
     private void initHttpHandler(final ChannelHandlerContext ctx, final Object msg) {
         HostHolder.HostInfo hostInfo = HostHolder.hold(ctx, (HttpRequest) msg, 80);
         ctx.pipeline().remove("switchHandler");
-        if (InterceptorService.intercept(hostInfo.getHost())) {
+        if (FullInterceptor.interceptCheck(hostInfo.getHost())) {
             ctx.pipeline().addAfter("httpServerCodec", "httpObjectAggregator", new HttpObjectAggregator(8 * 1024 * 1024));
             ctx.pipeline().addAfter("httpObjectAggregator", "httpContentCompressor", new HttpContentCompressor());
             ctx.pipeline().addAfter("httpContentCompressor", "httpFullServerHandler", new HttpFullServerHandler(ctx.channel(), hostInfo.getHost(), hostInfo.getPort()));

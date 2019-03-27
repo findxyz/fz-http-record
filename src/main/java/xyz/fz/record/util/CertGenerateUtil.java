@@ -1,12 +1,10 @@
 package xyz.fz.record.util;
 
 import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.BasicConstraints;
-import org.bouncycastle.asn1.x509.Extension;
-import org.bouncycastle.asn1.x509.GeneralName;
-import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.asn1.x509.*;
 import org.bouncycastle.cert.CertIOException;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
@@ -28,9 +26,9 @@ public class CertGenerateUtil {
 
     private static SnowFlake snowFlake = new SnowFlake(9, 19);
 
-    private static final String ISSUER_TEMPLATE = "C=CN, ST=HN, L=ZZ, CN={caHost}";
+    private static final String ISSUER_TEMPLATE = "C=CN, ST=HN, L=ZZ, O=find, OU=why, CN={caHost}";
 
-    private static final String SUBJECT_TEMPLATE = "C=CN, ST=HN, L=ZZ, CN={host}";
+    private static final String SUBJECT_TEMPLATE = "C=CN, ST=HN, L=ZZ, O=find, OU=why, CN={host}";
 
     private static KeyPair DEFAULT_KEY_PAIR;
 
@@ -51,6 +49,9 @@ public class CertGenerateUtil {
     public static CertResult generateCaCert(String caHost) throws Exception {
         KeyPair caKeyPair = generateKeyPair();
         JcaX509v3CertificateBuilder certBuilder = generateCertBuilder(caHost, caHost, caKeyPair.getPublic());
+        JcaX509ExtensionUtils jcaX509ExtensionUtils = new JcaX509ExtensionUtils();
+        certBuilder.addExtension(Extension.subjectKeyIdentifier, false, jcaX509ExtensionUtils.createSubjectKeyIdentifier(caKeyPair.getPublic()));
+        certBuilder.addExtension(Extension.authorityKeyIdentifier, false, jcaX509ExtensionUtils.createAuthorityKeyIdentifier(caKeyPair.getPublic()));
         certBuilder.addExtension(Extension.basicConstraints, false, new BasicConstraints(true));
         ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSAEncryption").build(caKeyPair.getPrivate());
         return new CertResult(
@@ -62,16 +63,18 @@ public class CertGenerateUtil {
     public static CertResult generateCert(String caHost, String host, PrivateKey caPriKey) throws Exception {
         LOGGER.warn("generate cert for host: {}", host);
         ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSAEncryption").build(caPriKey);
+        JcaX509v3CertificateBuilder certBuilder = generateCertBuilder(caHost, host, DEFAULT_KEY_PAIR.getPublic());
+        certBuilder.addExtension(Extension.subjectAlternativeName, false, new GeneralNames(new GeneralName[]{new GeneralName(GeneralName.dNSName, host)}));
         return new CertResult(
                 DEFAULT_KEY_PAIR.getPrivate(),
-                new JcaX509CertificateConverter().getCertificate(generateCertBuilder(caHost, host, DEFAULT_KEY_PAIR.getPublic()).build(signer))
+                new JcaX509CertificateConverter().getCertificate(certBuilder.build(signer))
         );
     }
 
     private static JcaX509v3CertificateBuilder generateCertBuilder(String caHost, String host, PublicKey publicKey) throws CertIOException {
         String issuer = ISSUER_TEMPLATE.replace("{caHost}", caHost);
         String subject = SUBJECT_TEMPLATE.replace("{host}", host);
-        JcaX509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(
+        return new JcaX509v3CertificateBuilder(
                 new X500Name(issuer),
                 BigInteger.valueOf(snowFlake.generateNextId()),
                 new Date(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(30)),
@@ -79,8 +82,6 @@ public class CertGenerateUtil {
                 new X500Name(subject),
                 publicKey
         );
-        certBuilder.addExtension(Extension.subjectAlternativeName, false, new GeneralNames(new GeneralName[]{new GeneralName(GeneralName.dNSName, host)}));
-        return certBuilder;
     }
 
     public static class CertResult {

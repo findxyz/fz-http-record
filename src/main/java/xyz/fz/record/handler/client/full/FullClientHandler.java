@@ -6,7 +6,6 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.FullHttpResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import xyz.fz.record.service.InterceptorService;
 
 public class FullClientHandler extends SimpleChannelInboundHandler<FullHttpResponse> {
 
@@ -20,8 +19,6 @@ public class FullClientHandler extends SimpleChannelInboundHandler<FullHttpRespo
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpResponse msg) throws Exception {
-
-        InterceptorService.interceptResponse(msg);
 
         msg.retain();
         serverChannel.writeAndFlush(msg);

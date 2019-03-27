@@ -1,4 +1,4 @@
-package xyz.fz.record;
+package xyz.fz.record.server;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -11,18 +11,13 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.HttpServerCodec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
 import xyz.fz.record.handler.SwitchHandler;
 
-@SpringBootApplication
-public class Application {
+public class RecordServer {
 
-    private static Logger LOGGER = LoggerFactory.getLogger(Application.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(RecordServer.class);
 
-    public static void main(String[] args) {
-        SpringApplication.run(Application.class, args);
-
+    public void start() {
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
         try {
