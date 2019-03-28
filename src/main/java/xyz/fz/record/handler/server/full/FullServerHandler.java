@@ -1,17 +1,30 @@
 package xyz.fz.record.handler.server.full;
 
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpHeaders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import xyz.fz.record.handler.client.ClientWorker;
+import xyz.fz.record.handler.client.full.FullClientWorker;
 import xyz.fz.record.handler.server.InitializingServer;
-import xyz.fz.record.interceptor.FullInterceptor;
 
-public abstract class FullServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> implements InitializingServer {
+public class FullServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> implements InitializingServer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FullServerHandler.class);
+
+    private ClientWorker clientWorker;
+
+    public FullServerHandler(Channel serverChannel) {
+        clientWorker = new FullClientWorker(serverChannel);
+    }
+
+    @Override
+    public ClientWorker getClientWorker() {
+        return clientWorker;
+    }
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest msg) throws Exception {
@@ -22,6 +35,7 @@ public abstract class FullServerHandler extends SimpleChannelInboundHandler<Full
         }
 
         msg.retain();
+
         getClientWorker().sendMsg(msg);
     }
 

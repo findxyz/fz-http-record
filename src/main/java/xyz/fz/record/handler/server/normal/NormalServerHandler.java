@@ -11,15 +11,15 @@ public abstract class NormalServerHandler extends ChannelInboundHandlerAdapter i
     private static final Logger LOGGER = LoggerFactory.getLogger(NormalServerHandler.class);
 
     @Override
+    public void channelRead(final ChannelHandlerContext ctx, final Object msg) throws Exception {
+        getClientWorker().sendMsg(msg);
+    }
+
+    @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         if (getClientWorker().getChannelFuture() != null) {
             getClientWorker().getChannelFuture().channel().close();
         }
-    }
-
-    @Override
-    public void channelRead(final ChannelHandlerContext ctx, final Object msg) throws Exception {
-        getClientWorker().sendMsg(msg);
     }
 
     @Override

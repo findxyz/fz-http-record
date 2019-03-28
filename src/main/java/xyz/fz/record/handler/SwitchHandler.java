@@ -6,11 +6,10 @@ import io.netty.handler.codec.http.*;
 import io.netty.util.ReferenceCountUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import xyz.fz.record.exception.GreatFireWallException;
-import xyz.fz.record.handler.server.full.HttpFullServerHandler;
-import xyz.fz.record.handler.server.normal.HttpNormalServerHandler;
-import xyz.fz.record.handler.server.normal.HttpsNormalServerHandler;
-import xyz.fz.record.interceptor.FullInterceptor;
+import xyz.fz.record.handler.server.full.FullServerHandler;
+import xyz.fz.record.handler.server.normal.NormalHttpServerHandler;
+import xyz.fz.record.handler.server.normal.NormalHttpsServerHandler;
+import xyz.fz.record.interceptor.ProxyInterceptor;
 
 public class SwitchHandler extends ChannelInboundHandlerAdapter {
 
@@ -19,51 +18,67 @@ public class SwitchHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelRead(final ChannelHandlerContext ctx, final Object msg) throws Exception {
         if (msg instanceof HttpRequest) {
-            if ("CONNECT".equalsIgnoreCase(((HttpRequest) msg).method().name())) {
-                initHttpsHandler(ctx, msg);
-            } else {
-                initHttpHandler(ctx, msg);
+            boolean isSsl = "CONNECT".equalsIgnoreCase(((HttpRequest) msg).method().name());
+            HostInfo hostInfo = HostInfo.of((HttpRequest) msg, isSsl);
+            // todo 检查是否拦截此 host 下的请求
+            boolean isIntercept = ProxyInterceptor.interceptCheck(hostInfo.getHost());
+            String switchCase = (isSsl ? "https" : "http") + "@" + (isIntercept ? "intercept" : "");
+
+            ctx.pipeline().remove("switchHandler");
+            switch (switchCase) {
+                case "https@intercept":
+                    switchToHttpsIntercept(ctx, msg, hostInfo.getHost());
+                    break;
+                case "https@":
+                    switchToHttps(ctx, msg, hostInfo.getHost(), hostInfo.getPort());
+                    break;
+                case "http@intercept":
+                    switchToHttpIntercept(ctx, msg);
+                    break;
+                case "http@":
+                    switchToHttp(ctx, msg, hostInfo.getHost(), hostInfo.getPort());
+                    break;
             }
         } else {
             ReferenceCountUtil.release(msg);
         }
     }
 
-    private void initHttpsHandler(final ChannelHandlerContext ctx, final Object msg) {
-        HostHolder.HostInfo hostInfo = HostHolder.hold(ctx, (HttpRequest) msg, 443);
-        ctx.pipeline().remove("switchHandler");
-        DefaultFullHttpResponse connectedResponse = new DefaultFullHttpResponse(
+    private void switchToHttpsIntercept(ChannelHandlerContext ctx, Object msg, String host) {
+        ctx.pipeline().writeAndFlush(new DefaultFullHttpResponse(
                 HttpVersion.HTTP_1_1,
                 new HttpResponseStatus(200, "Connection established")
-        );
-        ctx.pipeline().writeAndFlush(connectedResponse);
+        ));
         ctx.pipeline().remove("httpServerCodec");
-        if (FullInterceptor.interceptCheck(hostInfo.getHost())) {
-            ctx.pipeline().addLast("handShakeHandler", new HandShakeHandler());
-        } else {
-            ctx.pipeline().addLast("httpsNormalServerHandler", new HttpsNormalServerHandler(ctx.channel(), hostInfo.getHost(), hostInfo.getPort()));
-        }
+        ctx.pipeline().addLast("handShakeHandler", new HandShakeHandler(host));
         ReferenceCountUtil.release(msg);
     }
 
-    private void initHttpHandler(final ChannelHandlerContext ctx, final Object msg) {
-        HostHolder.HostInfo hostInfo = HostHolder.hold(ctx, (HttpRequest) msg, 80);
-        ctx.pipeline().remove("switchHandler");
-        if (FullInterceptor.interceptCheck(hostInfo.getHost())) {
-            ctx.pipeline().addAfter("httpServerCodec", "httpObjectAggregator", new HttpObjectAggregator(8 * 1024 * 1024));
-            ctx.pipeline().addAfter("httpObjectAggregator", "httpContentCompressor", new HttpContentCompressor());
-            ctx.pipeline().addAfter("httpContentCompressor", "httpFullServerHandler", new HttpFullServerHandler(ctx.channel(), hostInfo.getHost(), hostInfo.getPort()));
-        } else {
-            ctx.pipeline().addLast("httpNormalServerHandler", new HttpNormalServerHandler(ctx.channel(), hostInfo.getHost(), hostInfo.getPort()));
-        }
+    private void switchToHttps(ChannelHandlerContext ctx, Object msg, String host, int port) {
+        ctx.pipeline().writeAndFlush(new DefaultFullHttpResponse(
+                HttpVersion.HTTP_1_1,
+                new HttpResponseStatus(200, "Connection established")
+        ));
+        ctx.pipeline().remove("httpServerCodec");
+        ctx.pipeline().addLast("normalHttpsServerHandler", new NormalHttpsServerHandler(ctx.channel(), host, port));
+        ReferenceCountUtil.release(msg);
+    }
+
+    private void switchToHttpIntercept(ChannelHandlerContext ctx, final Object msg) {
+        ctx.pipeline().addAfter("httpServerCodec", "httpObjectAggregator", new HttpObjectAggregator(8 * 1024 * 1024));
+        ctx.pipeline().addAfter("httpObjectAggregator", "httpContentCompressor", new HttpContentCompressor());
+        ctx.pipeline().addAfter("httpContentCompressor", "fullServerHandler", new FullServerHandler(ctx.channel()));
+        ctx.pipeline().fireChannelRead(msg);
+    }
+
+    private void switchToHttp(final ChannelHandlerContext ctx, final Object msg, String host, int port) {
+        ctx.pipeline().addAfter("httpServerCodec", "normalHttpServerHandler", new NormalHttpServerHandler(ctx.channel(), host, port));
         ctx.pipeline().fireChannelRead(msg);
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         ctx.close();
-        if (!(cause instanceof GreatFireWallException)) {
-            LOGGER.error("switch handler err: {}", cause.getMessage());
-        }
+        LOGGER.error("switch handler err: {}", cause.getMessage());
     }
 }
