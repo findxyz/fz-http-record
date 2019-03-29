@@ -25,7 +25,13 @@ public class HostInfo {
 
     static HostInfo of(HttpRequest httpRequest, boolean isSsl) {
         if (httpRequest.headers().size() > 0) {
-            String[] hostPort = httpRequest.headers().get(HttpHeaderNames.HOST).split(":");
+            String hostHeader = httpRequest.headers().get(HttpHeaderNames.HOST);
+            String[] hostPort;
+            if (hostHeader != null) {
+                hostPort = hostHeader.split(":");
+            } else {
+                hostPort = httpRequest.uri().split(":");
+            }
             String host = hostPort[0];
             int port = isSsl ? 443 : 80;
             if (hostPort.length > 1) {

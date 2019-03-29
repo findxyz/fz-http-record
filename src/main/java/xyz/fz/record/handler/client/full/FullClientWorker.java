@@ -13,7 +13,7 @@ import okhttp3.*;
 import okhttp3.internal.annotations.EverythingIsNonNull;
 import xyz.fz.record.handler.HostInfo;
 import xyz.fz.record.handler.client.ClientWorker;
-import xyz.fz.record.interceptor.ProxyInterceptor;
+import xyz.fz.record.intercept.ProxyUtil;
 import xyz.fz.record.util.SnowFlake;
 
 import java.io.IOException;
@@ -63,7 +63,7 @@ public class FullClientWorker implements ClientWorker {
 
             // todo 拦截 FullHttpRequest
             long proxyId = snowFlake.generateNextId();
-            ProxyInterceptor.interceptRequest(proxyId, fullHttpRequest);
+            ProxyUtil.interceptRequest(proxyId, fullHttpRequest);
 
             client.newCall(requestBuilder.build()).enqueue(new Callback() {
                 @Override
@@ -97,7 +97,7 @@ public class FullClientWorker implements ClientWorker {
                         }
 
                         // todo 拦截 FullHttpResponse
-                        ProxyInterceptor.interceptResponse(proxyId, serverResponse);
+                        ProxyUtil.interceptResponse(proxyId, serverResponse);
 
                         serverChannel.writeAndFlush(serverResponse);
                     }

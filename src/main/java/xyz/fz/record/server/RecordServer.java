@@ -12,12 +12,48 @@ import io.netty.handler.codec.http.HttpServerCodec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import xyz.fz.record.handler.SwitchHandler;
+import xyz.fz.record.intercept.ProxyUtil;
+import xyz.fz.record.intercept.RecordIntercept;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class RecordServer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RecordServer.class);
 
-    public void start() {
+    private static ChannelFuture CHANNEL_FUTURE = null;
+
+    private static volatile boolean RUNNING = false;
+
+    public static void startInterceptAll(List<RecordIntercept> interceptList) {
+        ProxyUtil.setInterceptAll(true);
+        ProxyUtil.setInterceptList(interceptList);
+        ProxyUtil.setInterceptHost(new String[]{});
+        while (!RUNNING && CHANNEL_FUTURE == null) {
+            start();
+        }
+    }
+
+    public static void startInterceptNone() {
+        ProxyUtil.setInterceptAll(false);
+        ProxyUtil.setInterceptList(new ArrayList<>());
+        ProxyUtil.setInterceptHost(new String[]{});
+        while (!RUNNING && CHANNEL_FUTURE == null) {
+            start();
+        }
+    }
+
+    public static void startInterceptHost(List<RecordIntercept> interceptList, String[] hosts) {
+        ProxyUtil.setInterceptAll(false);
+        ProxyUtil.setInterceptList(interceptList);
+        ProxyUtil.setInterceptHost(hosts);
+        while (!RUNNING && CHANNEL_FUTURE == null) {
+            start();
+        }
+    }
+
+    private synchronized static void start() {
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
         try {
@@ -34,17 +70,18 @@ public class RecordServer {
                     .option(ChannelOption.SO_BACKLOG, 128)
                     .childOption(ChannelOption.SO_KEEPALIVE, true);
 
-            ChannelFuture future = serverBootstrap.bind("0.0.0.0", 8088).sync();
-
+            CHANNEL_FUTURE = serverBootstrap.bind("0.0.0.0", 8088).sync();
+            RUNNING = true;
             LOGGER.warn("http record server startup @ 8088");
 
-            future.channel().closeFuture().sync();
+            CHANNEL_FUTURE.channel().closeFuture().sync();
         } catch (InterruptedException e) {
             e.printStackTrace();
         } finally {
             workerGroup.shutdownGracefully();
             bossGroup.shutdownGracefully();
             LOGGER.warn("http record server shutdown...");
+            RUNNING = false;
         }
     }
 }

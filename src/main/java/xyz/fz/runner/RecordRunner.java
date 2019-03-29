@@ -8,6 +8,6 @@ import xyz.fz.record.server.RecordServer;
 public class RecordRunner implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
-        new RecordServer().start();
+        RecordServer.startInterceptNone();
     }
 }

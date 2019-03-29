@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 import xyz.fz.record.handler.server.full.FullServerHandler;
 import xyz.fz.record.handler.server.normal.NormalHttpServerHandler;
 import xyz.fz.record.handler.server.normal.NormalHttpsServerHandler;
-import xyz.fz.record.interceptor.ProxyInterceptor;
+import xyz.fz.record.intercept.ProxyUtil;
 
 public class SwitchHandler extends ChannelInboundHandlerAdapter {
 
@@ -21,7 +21,7 @@ public class SwitchHandler extends ChannelInboundHandlerAdapter {
             boolean isSsl = "CONNECT".equalsIgnoreCase(((HttpRequest) msg).method().name());
             HostInfo hostInfo = HostInfo.of((HttpRequest) msg, isSsl);
             // todo 检查是否拦截此 host 下的请求
-            boolean isIntercept = ProxyInterceptor.interceptCheck(hostInfo.getHost());
+            boolean isIntercept = ProxyUtil.interceptCheck(hostInfo.getHost());
             String switchCase = (isSsl ? "https" : "http") + "@" + (isIntercept ? "intercept" : "");
 
             ctx.pipeline().remove("switchHandler");
@@ -80,5 +80,6 @@ public class SwitchHandler extends ChannelInboundHandlerAdapter {
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         ctx.close();
         LOGGER.error("switch handler err: {}", cause.getMessage());
+        cause.printStackTrace();
     }
 }
