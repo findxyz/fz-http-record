@@ -59,7 +59,7 @@
     <!--</logger>-->
 
     <!-- Application Loggers -->
-    <!--<logger name="xyz.fz" level="WARN"/>-->
+    <logger name="xyz.fz" level="DEBUG"/>
 
     <!-- Root Logger -->
     <root level="WARN">

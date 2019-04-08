@@ -15,7 +15,7 @@ public class Application {
     public static void main(String[] args) {
         SpringApplication application = new SpringApplication(Application.class);
         application.addListeners((ApplicationListener<ContextRefreshedEvent>) event -> {
-            LOGGER.warn("spring boot web server startup @ 8080");
+            LOGGER.warn("spring boot web server startup @ 8087");
         });
         application.run(args);
     }
