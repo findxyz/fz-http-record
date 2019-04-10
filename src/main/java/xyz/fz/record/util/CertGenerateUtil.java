@@ -1,8 +1,10 @@
 package xyz.fz.record.util;
 
 import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.*;
-import org.bouncycastle.cert.CertIOException;
+import org.bouncycastle.asn1.x509.BasicConstraints;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
@@ -23,8 +25,6 @@ import java.util.concurrent.TimeUnit;
 public class CertGenerateUtil {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CertGenerateUtil.class);
-
-    private static SnowFlake snowFlake = new SnowFlake(9, 19);
 
     private static final String ISSUER_TEMPLATE = "C=CN, ST=HN, L=ZZ, O=find, OU=why, CN={caHost}";
 
@@ -71,12 +71,12 @@ public class CertGenerateUtil {
         );
     }
 
-    private static JcaX509v3CertificateBuilder generateCertBuilder(String caHost, String host, PublicKey publicKey) throws CertIOException {
+    private static JcaX509v3CertificateBuilder generateCertBuilder(String caHost, String host, PublicKey publicKey) {
         String issuer = ISSUER_TEMPLATE.replace("{caHost}", caHost);
         String subject = SUBJECT_TEMPLATE.replace("{host}", host);
         return new JcaX509v3CertificateBuilder(
                 new X500Name(issuer),
-                BigInteger.valueOf(snowFlake.generateNextId()),
+                BigInteger.valueOf(SnowFlake.ofDefault().generateNextId()),
                 new Date(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(30)),
                 new Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(3650)),
                 new X500Name(subject),

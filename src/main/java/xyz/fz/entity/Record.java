@@ -5,10 +5,8 @@ import javax.persistence.*;
 @Entity
 @Table(name = "t_record")
 public class Record {
-
     @Id
     @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(name = "method")

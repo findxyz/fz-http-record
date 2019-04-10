@@ -2,10 +2,10 @@ package xyz.fz.record.util;
 
 /**
  * twitter的snowflake算法 -- java实现
- *
+ * <p>
  * author beyond
  * date 2016/11/26
- *
+ * <p>
  * update 优化变量及方法名称
  * editor __f1ndwh7
  * date 2018/05/31
@@ -64,6 +64,12 @@ public class SnowFlake {
     private long dataCenterId;
     private long machineId;
     private long sequence = 0L;
+
+    private static SnowFlake defaultSnowFlake = new SnowFlake(1, 1);
+
+    public static SnowFlake ofDefault() {
+        return defaultSnowFlake;
+    }
 
     public SnowFlake(long dataCenterId, long machineId) {
         if (dataCenterId > MAX_DATA_CENTER_NUM || dataCenterId < 0) {

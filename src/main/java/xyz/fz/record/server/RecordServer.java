@@ -1,10 +1,7 @@
 package xyz.fz.record.server;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -14,6 +11,8 @@ import org.slf4j.LoggerFactory;
 import xyz.fz.record.handler.SwitchHandler;
 import xyz.fz.record.intercept.ProxyUtil;
 import xyz.fz.record.intercept.RecordIntercept;
+import xyz.fz.record.util.SnowFlake;
+import xyz.fz.util.ThreadUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,64 +23,79 @@ public class RecordServer {
 
     private static ChannelFuture CHANNEL_FUTURE = null;
 
-    private static volatile boolean RUNNING = false;
+    private static volatile long startTime = SnowFlake.ofDefault().generateNextId();
+
+    public static long getStartTime() {
+        return startTime;
+    }
 
     public static void startInterceptAll(List<RecordIntercept> interceptList) {
         ProxyUtil.setInterceptAll(true);
         ProxyUtil.setInterceptList(interceptList);
         ProxyUtil.setInterceptHost(new String[]{});
-        while (!RUNNING && CHANNEL_FUTURE == null) {
-            start();
-        }
+        start();
     }
 
     public static void startInterceptNone() {
         ProxyUtil.setInterceptAll(false);
         ProxyUtil.setInterceptList(new ArrayList<>());
         ProxyUtil.setInterceptHost(new String[]{});
-        while (!RUNNING && CHANNEL_FUTURE == null) {
-            start();
-        }
+        start();
     }
 
     public static void startInterceptHost(List<RecordIntercept> interceptList, String[] hosts) {
         ProxyUtil.setInterceptAll(false);
         ProxyUtil.setInterceptList(interceptList);
         ProxyUtil.setInterceptHost(hosts);
-        while (!RUNNING && CHANNEL_FUTURE == null) {
-            start();
+        start();
+    }
+
+    public synchronized static void stop() {
+        if (CHANNEL_FUTURE != null) {
+            CHANNEL_FUTURE.channel().close();
         }
     }
 
     private synchronized static void start() {
-        EventLoopGroup bossGroup = new NioEventLoopGroup(1);
-        EventLoopGroup workerGroup = new NioEventLoopGroup();
-        try {
-            ServerBootstrap serverBootstrap = new ServerBootstrap();
-            serverBootstrap.group(bossGroup, workerGroup)
-                    .channel(NioServerSocketChannel.class)
-                    .childHandler(new ChannelInitializer<SocketChannel>() {
-                        @Override
-                        public void initChannel(SocketChannel ch) throws Exception {
-                            ch.pipeline().addLast("httpServerCodec", new HttpServerCodec());
-                            ch.pipeline().addLast("switchHandler", new SwitchHandler());
-                        }
-                    })
-                    .option(ChannelOption.SO_BACKLOG, 128)
-                    .childOption(ChannelOption.SO_KEEPALIVE, true);
-
-            CHANNEL_FUTURE = serverBootstrap.bind("0.0.0.0", 8088).sync();
-            RUNNING = true;
-            LOGGER.warn("http record server startup @ 8088");
-
-            CHANNEL_FUTURE.channel().closeFuture().sync();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } finally {
-            workerGroup.shutdownGracefully();
-            bossGroup.shutdownGracefully();
-            LOGGER.warn("http record server shutdown...");
-            RUNNING = false;
+        startTime = SnowFlake.ofDefault().generateNextId();
+        if (CHANNEL_FUTURE != null) {
+            CHANNEL_FUTURE.channel().closeFuture().addListener((ChannelFutureListener) future -> start0());
+            CHANNEL_FUTURE.channel().close();
+        } else {
+            start0();
         }
+    }
+
+    private static void start0() {
+        ThreadUtil.execute(() -> {
+            EventLoopGroup bossGroup = new NioEventLoopGroup(1);
+            EventLoopGroup workerGroup = new NioEventLoopGroup();
+            try {
+                ServerBootstrap serverBootstrap = new ServerBootstrap();
+                serverBootstrap.group(bossGroup, workerGroup)
+                        .channel(NioServerSocketChannel.class)
+                        .childHandler(new ChannelInitializer<SocketChannel>() {
+                            @Override
+                            public void initChannel(SocketChannel ch) throws Exception {
+                                ch.pipeline().addLast("httpServerCodec", new HttpServerCodec());
+                                ch.pipeline().addLast("switchHandler", new SwitchHandler());
+                            }
+                        })
+                        .option(ChannelOption.SO_BACKLOG, 128)
+                        .childOption(ChannelOption.SO_KEEPALIVE, true);
+
+                CHANNEL_FUTURE = serverBootstrap.bind("0.0.0.0", 8088).sync();
+                LOGGER.warn("http record server startup @ 8088");
+
+                CHANNEL_FUTURE.channel().closeFuture().sync();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } finally {
+                workerGroup.shutdownGracefully();
+                bossGroup.shutdownGracefully();
+                LOGGER.warn("http record server shutdown...");
+                CHANNEL_FUTURE = null;
+            }
+        });
     }
 }

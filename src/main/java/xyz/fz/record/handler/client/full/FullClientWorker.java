@@ -4,10 +4,7 @@ import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
-import io.netty.handler.codec.http.FullHttpRequest;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.*;
 import io.netty.util.ReferenceCountUtil;
 import okhttp3.*;
 import okhttp3.internal.annotations.EverythingIsNonNull;
@@ -21,8 +18,6 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class FullClientWorker implements ClientWorker {
-
-    private static SnowFlake snowFlake = new SnowFlake(1, 1);
 
     private static OkHttpClient client = new OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
@@ -57,12 +52,13 @@ public class FullClientWorker implements ClientWorker {
                 requestBuilder.post(requestBody);
             }
 
+            fullHttpRequest.headers().remove(HttpHeaderNames.ACCEPT_ENCODING);
             for (Map.Entry<String, String> entry : fullHttpRequest.headers().entries()) {
                 requestBuilder.addHeader(entry.getKey(), entry.getValue());
             }
 
-            // todo 拦截 FullHttpRequest
-            long proxyId = snowFlake.generateNextId();
+            // 拦截 FullHttpRequest
+            long proxyId = SnowFlake.ofDefault().generateNextId();
             ProxyUtil.interceptRequest(proxyId, fullHttpRequest);
 
             client.newCall(requestBuilder.build()).enqueue(new Callback() {
@@ -96,7 +92,7 @@ public class FullClientWorker implements ClientWorker {
                             serverResponse.headers().add(header, clientResponseHeaders.get(header));
                         }
 
-                        // todo 拦截 FullHttpResponse
+                        // 拦截 FullHttpResponse
                         ProxyUtil.interceptResponse(proxyId, serverResponse);
 
                         serverChannel.writeAndFlush(serverResponse);
