@@ -3,6 +3,7 @@ package xyz.fz.intercept;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaders;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
@@ -17,8 +18,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 
 @Component
 public class DefaultIntercept implements RecordIntercept {
@@ -45,7 +44,7 @@ public class DefaultIntercept implements RecordIntercept {
         List<String> messageList = formatHeaders(httpHeaders);
         if (content.readableBytes() > 0) {
             if (content.readableBytes() <= 280 * 1024) {
-                String contentType = httpHeaders.get(CONTENT_TYPE);
+                String contentType = httpHeaders.get(HttpHeaderNames.CONTENT_TYPE);
                 if (StringUtils.containsIgnoreCase(contentType, "gbk")) {
                     messageList.add("body: " + content.toString(Charset.forName("gbk")));
                 } else {
