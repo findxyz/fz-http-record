@@ -13,7 +13,6 @@ import xyz.fz.service.RecordService;
 import xyz.fz.util.BaseUtil;
 
 import javax.annotation.Resource;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -69,7 +68,7 @@ public class RecordController {
     }
 
     @RequestMapping("/recordDetail")
-    public Result recordDetail(@RequestBody Map params) throws IOException {
+    public Result recordDetail(@RequestBody Map params) {
         Long recordId = Long.parseLong(params.get("recordId").toString());
         Record record = recordService.recordDetail(recordId);
         String request = record.getRequest();

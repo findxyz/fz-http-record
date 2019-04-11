@@ -27,39 +27,26 @@ public class DefaultIntercept implements RecordIntercept {
 
     @Override
     public void interceptRequest(long proxyId, FullHttpRequest fullHttpRequest) {
-        Record record = new Record();
-        record.setId(proxyId);
-        record.setMethod(fullHttpRequest.method().name());
-        record.setUrl(fullHttpRequest.uri());
-        record.setRequest(getMessageJson(fullHttpRequest.headers(), fullHttpRequest.content()));
-        recordService.save(record);
+        if (fullHttpRequest.uri().length() <= 999) {
+            Record record = new Record();
+            record.setId(proxyId);
+            record.setHost(fullHttpRequest.headers().get(HttpHeaderNames.HOST));
+            record.setMethod(fullHttpRequest.method().name());
+            record.setUrl(fullHttpRequest.uri());
+            record.setRequest(getHttp(fullHttpRequest.headers(), fullHttpRequest.content()));
+            recordService.save(record);
+        }
     }
 
     @Override
     public void interceptResponse(long proxyId, FullHttpResponse fullHttpResponse) {
-        recordService.updateResponse(proxyId, getMessageJson(fullHttpResponse.headers(), fullHttpResponse.content()));
+        recordService.updateResponse(proxyId, getHttp(fullHttpResponse.headers(), fullHttpResponse.content()));
     }
 
-    private String getMessageJson(HttpHeaders httpHeaders, ByteBuf content) {
-        List<String> messageList = formatHeaders(httpHeaders);
-        if (content.readableBytes() > 0) {
-            if (content.readableBytes() <= 280 * 1024) {
-                String contentType = httpHeaders.get(HttpHeaderNames.CONTENT_TYPE);
-                if (StringUtils.containsIgnoreCase(contentType, "gbk")) {
-                    messageList.add("body: " + content.toString(Charset.forName("gbk")));
-                } else {
-                    messageList.add("body: " + content.toString(StandardCharsets.UTF_8));
-                }
-            } else {
-                messageList.add("body: 响应数据大于300K");
-            }
-        }
-        String messageJson = "";
-        try {
-            messageJson = BaseUtil.toJson(messageList);
-        } catch (Exception ignore) {
-        }
-        return messageJson;
+    private String getHttp(HttpHeaders httpHeaders, ByteBuf content) {
+        List<String> httpList = formatHeaders(httpHeaders);
+        httpList.add(formatBody(httpHeaders, content));
+        return BaseUtil.toJson(httpList);
     }
 
     private List<String> formatHeaders(HttpHeaders httpHeaders) {
@@ -68,5 +55,26 @@ public class DefaultIntercept implements RecordIntercept {
             headers.add(entry.getKey() + ": " + entry.getValue());
         }
         return headers;
+    }
+
+    private String formatBody(HttpHeaders httpHeaders, ByteBuf content) {
+        String result = "";
+        if (content.readableBytes() > 0) {
+            if (content.readableBytes() > 50 * 1024) {
+                result = "body: 响应数据大于50K";
+            } else {
+                String contentType = httpHeaders.get(HttpHeaderNames.CONTENT_TYPE);
+                if (StringUtils.containsIgnoreCase(contentType, "image")) {
+                    result = "body: 图片内容";
+                } else {
+                    if (StringUtils.containsIgnoreCase(contentType, "gbk")) {
+                        result = "body: " + content.toString(Charset.forName("gbk"));
+                    } else {
+                        result = "body: " + content.toString(StandardCharsets.UTF_8);
+                    }
+                }
+            }
+        }
+        return result;
     }
 }

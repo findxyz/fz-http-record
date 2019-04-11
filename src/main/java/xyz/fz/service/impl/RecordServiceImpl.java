@@ -28,9 +28,11 @@ public class RecordServiceImpl implements RecordService {
     @Override
     public void updateResponse(long id, String response) {
         Optional<Record> fRecord = recordRepository.findById(id);
-        Record record = fRecord.orElseThrow(() -> new RuntimeException("记录不存在"));
-        record.setResponse(response);
-        recordRepository.save(record);
+        if (fRecord.isPresent()) {
+            Record record = fRecord.get();
+            record.setResponse(response);
+            recordRepository.save(record);
+        }
     }
 
     @Override

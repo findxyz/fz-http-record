@@ -1,6 +1,5 @@
 package xyz.fz.util;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.xml.internal.bind.marshaller.CharacterEscapeHandler;
 import org.slf4j.Logger;
@@ -58,12 +57,22 @@ public class BaseUtil {
         documentBuilderFactory.setExpandEntityReferences(false);
     }
 
-    public static String toJson(Object obj) throws JsonProcessingException {
-        return objectMapper.writeValueAsString(obj);
+    public static String toJson(Object obj) {
+        try {
+            return objectMapper.writeValueAsString(obj);
+        } catch (Exception e) {
+            logger.error(BaseUtil.getExceptionStackTrace(e));
+            return "";
+        }
     }
 
-    public static <T> T parseJson(String json, Class<T> clazz) throws IOException {
-        return objectMapper.readValue(json, clazz);
+    public static <T> T parseJson(String json, Class<T> clazz) {
+        try {
+            return objectMapper.readValue(json, clazz);
+        } catch (Exception e) {
+            logger.error(BaseUtil.getExceptionStackTrace(e));
+            return null;
+        }
     }
 
     public static String jaxbMarshal(Object obj) throws IOException, JAXBException {

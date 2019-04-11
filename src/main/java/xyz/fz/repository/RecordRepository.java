@@ -9,6 +9,6 @@ import xyz.fz.entity.Record;
 import xyz.fz.model.RecordDTO;
 
 public interface RecordRepository extends JpaRepository<Record, Long> {
-    @Query(value = "select new xyz.fz.model.RecordDTO(concat(r.id, ''), r.method, r.url) from Record r where r.id > :id")
+    @Query(value = "select new xyz.fz.model.RecordDTO(concat(r.id, ''), r.host, r.method, r.url) from Record r where r.id > :id")
     Page<RecordDTO> recordQuery(@Param("id") Long id, Pageable pageable);
 }

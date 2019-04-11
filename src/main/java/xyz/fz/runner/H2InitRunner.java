@@ -23,12 +23,14 @@ public class H2InitRunner implements CommandLineRunner {
     }
 
     @Override
-    public void run(String... args) throws Exception {
+    public void run(String... args) {
         try {
             String testSql = "SELECT * FROM t_test ";
             jdbcTemplate.execute(testSql);
             // already init
             LOGGER.debug("Db already init");
+            String clearSql = "DELETE FROM t_record ";
+            jdbcTemplate.execute(clearSql);
         } catch (BadSqlGrammarException badSqlGrammarException) {
             LOGGER.debug("Do db init");
             // do init
@@ -48,7 +50,7 @@ public class H2InitRunner implements CommandLineRunner {
                 "table_test.sql"
         };
         initTables(basePath, tables);
-        LOGGER.info("数据库初始化完成");
+        LOGGER.debug("数据库初始化完成");
     }
 
     private void initTables(String basePath, String[] tables) {

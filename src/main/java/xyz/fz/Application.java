@@ -4,8 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.ApplicationListener;
-import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.context.ConfigurableApplicationContext;
 
 @SpringBootApplication
 public class Application {
@@ -14,9 +13,7 @@ public class Application {
 
     public static void main(String[] args) {
         SpringApplication application = new SpringApplication(Application.class);
-        application.addListeners((ApplicationListener<ContextRefreshedEvent>) event -> {
-            LOGGER.warn("spring boot web server startup @ 8087");
-        });
-        application.run(args);
+        ConfigurableApplicationContext context = application.run(args);
+        LOGGER.info("spring boot web server startup @ " + context.getEnvironment().getProperty("server.port"));
     }
 }

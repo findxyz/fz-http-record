@@ -9,6 +9,9 @@ public class Record {
     @Column(name = "id")
     private Long id;
 
+    @Column(name = "host")
+    private String host;
+
     @Column(name = "method")
     private String method;
 
@@ -29,6 +32,14 @@ public class Record {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public String getHost() {
+        return host;
+    }
+
+    public void setHost(String host) {
+        this.host = host;
     }
 
     public String getMethod() {

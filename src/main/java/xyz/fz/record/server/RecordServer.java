@@ -12,6 +12,7 @@ import xyz.fz.record.handler.SwitchHandler;
 import xyz.fz.record.intercept.ProxyUtil;
 import xyz.fz.record.intercept.RecordIntercept;
 import xyz.fz.record.util.SnowFlake;
+import xyz.fz.util.BaseUtil;
 import xyz.fz.util.ThreadUtil;
 
 import java.util.ArrayList;
@@ -24,6 +25,8 @@ public class RecordServer {
     private static ChannelFuture CHANNEL_FUTURE = null;
 
     private static volatile long startTime = SnowFlake.ofDefault().generateNextId();
+
+    private static final int port = 23333;
 
     public static long getStartTime() {
         return startTime;
@@ -76,7 +79,7 @@ public class RecordServer {
                         .channel(NioServerSocketChannel.class)
                         .childHandler(new ChannelInitializer<SocketChannel>() {
                             @Override
-                            public void initChannel(SocketChannel ch) throws Exception {
+                            public void initChannel(SocketChannel ch) {
                                 ch.pipeline().addLast("httpServerCodec", new HttpServerCodec());
                                 ch.pipeline().addLast("switchHandler", new SwitchHandler());
                             }
@@ -84,16 +87,16 @@ public class RecordServer {
                         .option(ChannelOption.SO_BACKLOG, 128)
                         .childOption(ChannelOption.SO_KEEPALIVE, true);
 
-                CHANNEL_FUTURE = serverBootstrap.bind("0.0.0.0", 8088).sync();
-                LOGGER.warn("http record server startup @ 8088");
+                CHANNEL_FUTURE = serverBootstrap.bind("0.0.0.0", port).sync();
+                LOGGER.info("http record server startup @ " + port);
 
                 CHANNEL_FUTURE.channel().closeFuture().sync();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+            } catch (Exception e) {
+                LOGGER.error(BaseUtil.getExceptionStackTrace(e));
             } finally {
                 workerGroup.shutdownGracefully();
                 bossGroup.shutdownGracefully();
-                LOGGER.warn("http record server shutdown...");
+                LOGGER.info("http record server has been shutdown");
                 CHANNEL_FUTURE = null;
             }
         });
