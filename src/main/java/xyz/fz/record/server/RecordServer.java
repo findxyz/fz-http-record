@@ -70,7 +70,7 @@ public class RecordServer {
     }
 
     private static void start0() {
-        ThreadUtil.execute(() -> {
+        ThreadUtil.executorService().execute(() -> {
             EventLoopGroup bossGroup = new NioEventLoopGroup(1);
             EventLoopGroup workerGroup = new NioEventLoopGroup();
             try {

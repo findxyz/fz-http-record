@@ -7,12 +7,12 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 public class ThreadUtil {
 
-    private static final ScheduledExecutorService executorService = new ScheduledThreadPoolExecutor(
-            1,
-            new BasicThreadFactory.Builder().namingPattern("thread-util-pool-%d").daemon(true).build()
+    private static ScheduledExecutorService executorService = new ScheduledThreadPoolExecutor(
+            Runtime.getRuntime().availableProcessors() * 2,
+            new BasicThreadFactory.Builder().namingPattern("util-process-pool-%d").daemon(true).build()
     );
 
-    public static void execute(Runnable runnable) {
-        executorService.execute(runnable);
+    public static ScheduledExecutorService executorService() {
+        return executorService;
     }
 }
