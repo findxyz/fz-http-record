@@ -1,7 +1,6 @@
 package xyz.fz.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sun.xml.internal.bind.marshaller.CharacterEscapeHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
@@ -9,10 +8,6 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import javax.xml.XMLConstants;
-import javax.xml.bind.JAXBContext;
-import javax.xml.bind.JAXBException;
-import javax.xml.bind.Marshaller;
-import javax.xml.bind.Unmarshaller;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -22,7 +17,10 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.awt.*;
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.text.ParseException;
@@ -72,30 +70,6 @@ public class BaseUtil {
         } catch (Exception e) {
             logger.error(BaseUtil.getExceptionStackTrace(e));
             return null;
-        }
-    }
-
-    public static String jaxbMarshal(Object obj) throws IOException, JAXBException {
-        String xml;
-        try (StringWriter sw = new StringWriter()) {
-            JAXBContext context = JAXBContext.newInstance(obj.getClass());
-            Marshaller marshaller = context.createMarshaller();
-            marshaller.setProperty(Marshaller.JAXB_FRAGMENT, true);
-            marshaller.setProperty("com.sun.xml.internal.bind.marshaller.CharacterEscapeHandler",
-                    (CharacterEscapeHandler) (ch, start, length, isAttVal, writer) -> writer.write(ch, start, length));
-            sw.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-            marshaller.marshal(obj, sw);
-            xml = sw.toString();
-        }
-        return xml;
-    }
-
-    @SuppressWarnings("unchecked")
-    public static <T> T jaxbUnMarshal(String xml, Class<T> cls) throws JAXBException {
-        try (StringReader sr = new StringReader(xml)) {
-            JAXBContext context = JAXBContext.newInstance(cls);
-            Unmarshaller unmarshaller = context.createUnmarshaller();
-            return (T) unmarshaller.unmarshal(sr);
         }
     }
 
