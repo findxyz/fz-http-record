@@ -25,6 +25,8 @@ public class DefaultIntercept implements RecordIntercept {
     @Resource
     private RecordService recordService;
 
+    private static final int DEFAULT_BODY_KB_SIZE = 400;
+
     @Override
     public void interceptRequest(long proxyId, FullHttpRequest fullHttpRequest) {
         if (fullHttpRequest.uri().length() <= 999) {
@@ -60,12 +62,12 @@ public class DefaultIntercept implements RecordIntercept {
     private String formatBody(HttpHeaders httpHeaders, ByteBuf content) {
         String result = "";
         if (content.readableBytes() > 0) {
-            if (content.readableBytes() > 50 * 1024) {
-                result = "body: 响应数据大于50K";
+            if (content.readableBytes() > DEFAULT_BODY_KB_SIZE * 1024) {
+                result = "body: 响应数据大于" + DEFAULT_BODY_KB_SIZE + "KB";
             } else {
                 String contentType = httpHeaders.get(HttpHeaderNames.CONTENT_TYPE);
                 if (StringUtils.containsIgnoreCase(contentType, "image")) {
-                    result = "body: 图片内容";
+                    result = "body: 内容为图片";
                 } else {
                     if (StringUtils.containsIgnoreCase(contentType, "gbk")) {
                         result = "body: " + content.toString(Charset.forName("gbk"));

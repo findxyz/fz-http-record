@@ -46,11 +46,13 @@ public class FullClientWorker implements ClientWorker {
             Request.Builder requestBuilder = new Request.Builder();
             requestBuilder.url(HostInfo.getUri(fullHttpRequest));
 
-            String contentType = fullHttpRequest.headers().get("Content-Type");
+            String method = fullHttpRequest.method().name();
+            String contentType = fullHttpRequest.headers().get(HttpHeaderNames.CONTENT_TYPE);
+            RequestBody requestBody  = null;
             if (contentType != null) {
-                RequestBody requestBody = RequestBody.create(MediaType.get(contentType), ByteBufUtil.getBytes(fullHttpRequest.content()));
-                requestBuilder.post(requestBody);
+                requestBody = RequestBody.create(MediaType.get(contentType), ByteBufUtil.getBytes(fullHttpRequest.content()));
             }
+            requestBuilder.method(method, requestBody);
 
             fullHttpRequest.headers().remove(HttpHeaderNames.ACCEPT_ENCODING);
             for (Map.Entry<String, String> entry : fullHttpRequest.headers().entries()) {
