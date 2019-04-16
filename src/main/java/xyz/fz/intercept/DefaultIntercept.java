@@ -25,7 +25,7 @@ public class DefaultIntercept implements RecordIntercept {
     @Resource
     private RecordService recordService;
 
-    private static final int DEFAULT_BODY_KB_SIZE = 400;
+    private static final int DEFAULT_BODY_KB_SIZE = 500;
 
     @Override
     public void interceptRequest(long proxyId, FullHttpRequest fullHttpRequest) {
@@ -35,18 +35,33 @@ public class DefaultIntercept implements RecordIntercept {
             record.setHost(fullHttpRequest.headers().get(HttpHeaderNames.HOST));
             record.setMethod(fullHttpRequest.method().name());
             record.setUrl(fullHttpRequest.uri());
-            record.setRequest(getHttp(fullHttpRequest.headers(), fullHttpRequest.content()));
+            record.setRequest(
+                    getHttp(
+                            fullHttpRequest.method().name() + " " + fullHttpRequest.uri() + " " + fullHttpRequest.protocolVersion(),
+                            fullHttpRequest.headers(),
+                            fullHttpRequest.content()
+                    )
+            );
             recordService.save(record);
         }
     }
 
     @Override
     public void interceptResponse(long proxyId, FullHttpResponse fullHttpResponse) {
-        recordService.updateResponse(proxyId, getHttp(fullHttpResponse.headers(), fullHttpResponse.content()));
+        recordService.updateResponse(proxyId,
+                getHttp(
+                        fullHttpResponse.protocolVersion() + " " + fullHttpResponse.status(),
+                        fullHttpResponse.headers(),
+                        fullHttpResponse.content()
+                )
+        );
     }
 
-    private String getHttp(HttpHeaders httpHeaders, ByteBuf content) {
-        List<String> httpList = formatHeaders(httpHeaders);
+    private String getHttp(String firstLine, HttpHeaders httpHeaders, ByteBuf content) {
+        List<String> httpList = new ArrayList<>();
+        httpList.add(firstLine);
+        httpList.addAll(formatHeaders(httpHeaders));
+        httpList.add(" ============================================= ");
         httpList.add(formatBody(httpHeaders, content));
         return BaseUtil.toJson(httpList);
     }
@@ -63,16 +78,16 @@ public class DefaultIntercept implements RecordIntercept {
         String result = "";
         if (content.readableBytes() > 0) {
             if (content.readableBytes() > DEFAULT_BODY_KB_SIZE * 1024) {
-                result = "body: 响应数据大于" + DEFAULT_BODY_KB_SIZE + "KB";
+                result = "响应数据大于" + DEFAULT_BODY_KB_SIZE + "KB";
             } else {
                 String contentType = httpHeaders.get(HttpHeaderNames.CONTENT_TYPE);
                 if (StringUtils.containsIgnoreCase(contentType, "image")) {
-                    result = "body: 内容为图片";
+                    result = "内容为图片";
                 } else {
                     if (StringUtils.containsIgnoreCase(contentType, "gbk")) {
-                        result = "body: " + content.toString(Charset.forName("gbk"));
+                        result = content.toString(Charset.forName("gbk"));
                     } else {
-                        result = "body: " + content.toString(StandardCharsets.UTF_8);
+                        result = content.toString(StandardCharsets.UTF_8);
                     }
                 }
             }

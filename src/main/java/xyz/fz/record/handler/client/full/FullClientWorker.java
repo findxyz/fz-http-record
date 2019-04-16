@@ -20,6 +20,8 @@ import java.util.concurrent.TimeUnit;
 public class FullClientWorker implements ClientWorker {
 
     private static OkHttpClient client = new OkHttpClient.Builder()
+            .followRedirects(false)
+            .followSslRedirects(false)
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(10, TimeUnit.SECONDS)
             .writeTimeout(10, TimeUnit.SECONDS)
