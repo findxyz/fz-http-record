@@ -20,7 +20,7 @@ public class SwitchHandler extends ChannelInboundHandlerAdapter {
         if (msg instanceof HttpRequest) {
             boolean isSsl = "CONNECT".equalsIgnoreCase(((HttpRequest) msg).method().name());
             HostInfo hostInfo = HostInfo.of((HttpRequest) msg, isSsl);
-            // todo 检查是否拦截此 host 下的请求
+            // done 检查是否拦截此 host 下的请求
             boolean isIntercept = ProxyUtil.interceptCheck(hostInfo.getHost());
             String switchCase = (isSsl ? "https" : "http") + "@" + (isIntercept ? "intercept" : "");
 
